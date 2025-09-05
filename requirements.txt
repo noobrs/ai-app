@@ -1,0 +1,13 @@
+streamlit
+pandas
+numpy
+scikit-learn
+joblib
+torch
+transformers
+altair
+python-dotenv
+requests
+matplotlib
+beautifulsoup4
+lxml
