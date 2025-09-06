@@ -581,12 +581,18 @@ if st.button("Run", type="primary", disabled=not texts):
                 height=400
             )
 
-        # Case 4: Multiple texts + All models - Show pie charts + comparison + scrollable grid
+        # Case 4: Multiple texts + All models - Show individual charts + comparison + scrollable grid
         else:  # Multiple texts + All models
             st.markdown(f"### Multi-Model Analysis ({num_texts} texts)")
             
+            # Individual distribution charts for each model (same as single model case)
+            for m in selected_models:
+                if f"{m}_label" in df.columns:
+                    model_name = {"nb": "Naive Bayes", "ann": "Artificial Neural Network (ANN)", "distilbert": "DistilBERT"}[m]
+                    distribution_charts(df, f"{m}_label", model_name)
+            
             # Multi-model comparison chart with neg/pos as x-axis and models as legend
-            multi_model_comparison_chart(df, selected_models, "Model Comparison by Sentiment")
+            multi_model_comparison_chart(df, selected_models, "All Models Comparison by Sentiment")
             
             # Scrollable grid with all model results
             st.markdown("### Detailed Results (All Models)")
