@@ -278,7 +278,7 @@ def comparison_chart(df: pd.DataFrame, prob_cols: List[str], title: str):
     bar = alt.Chart(melted).mark_bar().encode(
         x=alt.X("model:N", title="Model"),
         y=alt.Y("mean(prob_pos):Q", title="Mean P(positive)"),
-        tooltip=[alt.Tooltip("mean(prob_pos):Q", title="Mean P(pos)", format=".3f")]
+        tooltip=[alt.Tooltip("mean(prob_pos):Q", title="Mean P(pos)", format=".4f")]
     )
     st.altair_chart(bar, use_container_width=True)
 
@@ -296,7 +296,7 @@ def single_text_chart(row: pd.Series):
     chart = alt.Chart(df).mark_bar().encode(
         x=alt.X("P(positive):Q", scale=alt.Scale(domain=[0,1])),
         y=alt.Y("model:N", sort="-x"),
-        tooltip=[alt.Tooltip("P(positive):Q", format=".3f"), "model:N"]
+        tooltip=[alt.Tooltip("P(positive):Q", format=".4f"), "model:N"]
     )
     st.altair_chart(chart, use_container_width=True)
 
@@ -415,7 +415,7 @@ if st.button("Run", type="primary", disabled=not texts):
 
         # Case 1: Single text + Single model - Show sentiment result only
         if is_single_text and is_single_model:
-            st.markdown("### 🎯 Sentiment Result")
+            st.markdown("### Sentiment Result")
             row = df.iloc[0]
             
             # Find the active model
@@ -431,23 +431,23 @@ if st.button("Run", type="primary", disabled=not texts):
                 col1, col2, col3 = st.columns([1, 2, 1])
                 with col2:
                     if sentiment == "positive":
-                        st.success(f"**{sentiment.upper()}** 😊")
+                        st.success(f"**{sentiment.upper()}**")
                     else:
-                        st.error(f"**{sentiment.upper()}** 😞")
+                        st.error(f"**{sentiment.upper()}**")
                     
                     st.metric(
                         label=f"{model_name} Confidence",
-                        value=f"{confidence:.1%}",
-                        delta=f"P(positive) = {confidence:.3f}"
+                        value=f"{confidence:.4f}",
+                        delta=f"P(positive) = {confidence:.4f}"
                     )
                 
-                with st.expander("📝 View processed text"):
+                with st.expander("View processed text"):
                     st.write(row["cleaned"])
                 break
 
         # Case 2: Single text + All models - Show all three results
         elif is_single_text and is_all_models:
-            st.markdown("### 🔄 Model Comparison")
+            st.markdown("### Model Comparison")
             row = df.iloc[0]
             
             cols = st.columns(len(selected_models))
@@ -462,15 +462,15 @@ if st.button("Run", type="primary", disabled=not texts):
                 with cols[i]:
                     st.markdown(f"**{model_names[m]}**")
                     if sentiment == "positive":
-                        st.success(f"{sentiment.upper()} 😊")
+                        st.success(f"{sentiment.upper()}")
                     else:
-                        st.error(f"{sentiment.upper()} 😞")
-                    st.metric("Confidence", f"{confidence:.1%}")
+                        st.error(f"{sentiment.upper()}")
+                    st.metric("Confidence", f"{confidence:.4f}")
             
             # Show comparison chart
             single_text_chart(row)
             
-            with st.expander("📝 View processed text"):
+            with st.expander(" View processed text"):
                 st.write(row["cleaned"])
 
         # Case 3: Multiple texts + Single model - Show pie chart + scrollable grid
@@ -480,13 +480,13 @@ if st.button("Run", type="primary", disabled=not texts):
             label_col = f"{active_model}_label"
             model_name = {"nb": "Naive Bayes", "ann": "Artificial Neural Network (ANN)", "distilbert": "DistilBERT"}[active_model]
             
-            st.markdown(f"### 📊 {model_name} Results ({num_texts} texts)")
+            st.markdown(f"### {model_name} Results ({num_texts} texts)")
             
             # Pie chart for sentiment distribution
             distribution_charts(df, label_col, model_name)
             
             # Scrollable grid of results
-            st.markdown("### 📋 Detailed Results")
+            st.markdown("### Detailed Results")
             display_cols = ["text", label_col, f"{active_model}_prob_pos"]
             st.dataframe(
                 df[display_cols].rename(columns={
@@ -499,7 +499,7 @@ if st.button("Run", type="primary", disabled=not texts):
 
         # Case 4: Multiple texts + All models - Show pie charts + comparison + scrollable grid
         else:  # Multiple texts + All models
-            st.markdown(f"### 🔄 Multi-Model Analysis ({num_texts} texts)")
+            st.markdown(f"### Multi-Model Analysis ({num_texts} texts)")
             
             # Pie charts for each model
             for m in selected_models:
@@ -513,7 +513,7 @@ if st.button("Run", type="primary", disabled=not texts):
                 comparison_chart(df, prob_cols, "Model Comparison: Mean P(positive)")
             
             # Scrollable grid with all model results
-            st.markdown("### 📋 Detailed Results (All Models)")
+            st.markdown("### Detailed Results (All Models)")
             st.dataframe(df[show_cols], use_container_width=True, height=400)
 
         # Export functionality (always available)
@@ -521,4 +521,4 @@ if st.button("Run", type="primary", disabled=not texts):
         ts = time.strftime("%Y%m%d-%H%M%S")
         outname = f"{dataset_name}_sentiment_{ts}.csv"
         csv_bytes, fname = df_to_download(df[show_cols], outname)
-        st.download_button("⬇️ Export results to CSV", data=csv_bytes, file_name=fname, mime="text/csv")
+        st.download_button("Export results to CSV", data=csv_bytes, file_name=fname, mime="text/csv")
