@@ -300,8 +300,8 @@ def multi_model_comparison_chart(df: pd.DataFrame, selected_models: List[str], t
             xOffset=alt.XOffset("model:N"),
             tooltip=["model:N", "sentiment:N", "count:Q"]
         ).properties(
-            width=40,
-            height=30
+            width=400,
+            height=300
         )
         
         st.altair_chart(chart, use_container_width=True)
