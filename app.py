@@ -291,18 +291,17 @@ def multi_model_comparison_chart(df: pd.DataFrame, selected_models: List[str], t
         comparison_df = pd.DataFrame(comparison_data)
         st.subheader(title)
         
-        # Create grouped bar chart with sentiment on x-axis and models as legend
+        # Create grouped bar chart with sentiment on x-axis and models grouped side by side
         chart = alt.Chart(comparison_df).mark_bar().encode(
             x=alt.X("sentiment:N", title="Sentiment", sort=["negative", "positive"]),
             y=alt.Y("count:Q", title="Count"),
             color=alt.Color("model:N", title="Model", 
                           scale=alt.Scale(range=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728'])),
-            tooltip=["model:N", "sentiment:N", "count:Q"],
-            column=alt.Column("sentiment:N", title=None, header=alt.Header(labelFontSize=0))
-        ).resolve_scale(
-            x='independent'
+            xOffset=alt.XOffset("model:N"),
+            tooltip=["model:N", "sentiment:N", "count:Q"]
         ).properties(
-            width=150
+            width=40,
+            height=30
         )
         
         st.altair_chart(chart, use_container_width=True)
