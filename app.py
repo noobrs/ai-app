@@ -268,6 +268,45 @@ def distribution_charts(df: pd.DataFrame, model_key: str, title_prefix: str):
         bar = alt.Chart(counts).mark_bar().encode(x="label:N", y="count:Q", tooltip=["label", "count"])
         st.altair_chart(bar, use_container_width=True)
 
+def multi_model_comparison_chart(df: pd.DataFrame, selected_models: List[str], title: str):
+    """
+    Create comparison chart with neg/pos as x-axis, result count as y-axis, and model type as legend
+    """
+    # Prepare data for all models
+    comparison_data = []
+    model_names = {"nb": "Naive Bayes", "ann": "ANN", "distilbert": "DistilBERT"}
+    
+    for model in selected_models:
+        label_col = f"{model}_label"
+        if label_col in df.columns:
+            counts = df[label_col].value_counts(dropna=False)
+            for sentiment, count in counts.items():
+                comparison_data.append({
+                    "sentiment": sentiment,
+                    "count": count,
+                    "model": model_names.get(model, model.upper())
+                })
+    
+    if comparison_data:
+        comparison_df = pd.DataFrame(comparison_data)
+        st.subheader(title)
+        
+        # Create grouped bar chart with sentiment on x-axis and models as legend
+        chart = alt.Chart(comparison_df).mark_bar().encode(
+            x=alt.X("sentiment:N", title="Sentiment", sort=["negative", "positive"]),
+            y=alt.Y("count:Q", title="Count"),
+            color=alt.Color("model:N", title="Model", 
+                          scale=alt.Scale(range=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728'])),
+            tooltip=["model:N", "sentiment:N", "count:Q"],
+            column=alt.Column("sentiment:N", title=None, header=alt.Header(labelFontSize=0))
+        ).resolve_scale(
+            x='independent'
+        ).properties(
+            width=150
+        )
+        
+        st.altair_chart(chart, use_container_width=True)
+
 def comparison_chart(df: pd.DataFrame, prob_cols: List[str], title: str):
     # Average positive probability by model
     melted = df.melt(id_vars=["text"], value_vars=prob_cols, var_name="model", value_name="prob_pos").dropna()
@@ -281,6 +320,57 @@ def comparison_chart(df: pd.DataFrame, prob_cols: List[str], title: str):
         tooltip=[alt.Tooltip("mean(prob_pos):Q", title="Mean P(pos)", format=".4f")]
     )
     st.altair_chart(bar, use_container_width=True)
+
+def single_text_stacked_chart(row: pd.Series):
+    """
+    Show a stacked bar chart for single inference with all models
+    """
+    # Prepare data for stacked chart
+    chart_data = []
+    model_names = {"nb": "Naive Bayes", "ann": "ANN", "distilbert": "DistilBERT"}
+    
+    for m in ["nb", "ann", "distilbert"]:
+        prob_col = f"{m}_prob_pos"
+        if prob_col in row and not pd.isna(row[prob_col]):
+            prob_pos = float(row[prob_col])
+            prob_neg = 1.0 - prob_pos
+            
+            # Add positive probability
+            chart_data.append({
+                "model": model_names[m],
+                "sentiment": "Positive",
+                "probability": prob_pos,
+                "order": 1
+            })
+            
+            # Add negative probability
+            chart_data.append({
+                "model": model_names[m], 
+                "sentiment": "Negative",
+                "probability": prob_neg,
+                "order": 0
+            })
+    
+    if not chart_data:
+        return
+        
+    chart_df = pd.DataFrame(chart_data)
+    st.subheader("Model Confidence Breakdown")
+    
+    # Create stacked bar chart
+    chart = alt.Chart(chart_df).mark_bar().encode(
+        x=alt.X("model:N", title="Model"),
+        y=alt.Y("probability:Q", title="Probability", scale=alt.Scale(domain=[0, 1])),
+        color=alt.Color("sentiment:N", title="Sentiment",
+                       scale=alt.Scale(domain=["Negative", "Positive"], 
+                                     range=["#ff4444", "#44aa44"])),
+        order=alt.Order("order:O"),
+        tooltip=["model:N", "sentiment:N", alt.Tooltip("probability:Q", format=".4f")]
+    ).properties(
+        height=300
+    )
+    
+    st.altair_chart(chart, use_container_width=True)
 
 def single_text_chart(row: pd.Series):
     # Show a neat horizontal bar of probabilities
@@ -440,10 +530,6 @@ if st.button("Run", type="primary", disabled=not texts):
                         value=f"{confidence:.4f}",
                         delta=f"P(positive) = {confidence:.4f}"
                     )
-                
-                with st.expander("View processed text"):
-                    st.write(row["cleaned"])
-                break
 
         # Case 2: Single text + All models - Show all three results
         elif is_single_text and is_all_models:
@@ -467,11 +553,8 @@ if st.button("Run", type="primary", disabled=not texts):
                         st.error(f"{sentiment.upper()}")
                     st.metric("Confidence", f"{confidence:.4f}")
             
-            # Show comparison chart
-            single_text_chart(row)
-            
-            with st.expander(" View processed text"):
-                st.write(row["cleaned"])
+            # Show stacked comparison chart
+            single_text_stacked_chart(row)
 
         # Case 3: Multiple texts + Single model - Show pie chart + scrollable grid
         elif not is_single_text and is_single_model:
@@ -501,16 +584,8 @@ if st.button("Run", type="primary", disabled=not texts):
         else:  # Multiple texts + All models
             st.markdown(f"### Multi-Model Analysis ({num_texts} texts)")
             
-            # Pie charts for each model
-            for m in selected_models:
-                if f"{m}_label" in df.columns:
-                    model_name = {"nb": "Naive Bayes", "ann": "Artificial Neural Network (ANN)", "distilbert": "DistilBERT"}[m]
-                    distribution_charts(df, f"{m}_label", model_name)
-            
-            # Comparison chart across models
-            prob_cols = [c for c in df.columns if c.endswith("_prob_pos")]
-            if len(prob_cols) >= 2:
-                comparison_chart(df, prob_cols, "Model Comparison: Mean P(positive)")
+            # Multi-model comparison chart with neg/pos as x-axis and models as legend
+            multi_model_comparison_chart(df, selected_models, "Model Comparison by Sentiment")
             
             # Scrollable grid with all model results
             st.markdown("### Detailed Results (All Models)")
