@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import altair as alt
+from huggingface_hub import hf_hub_download
 
 # Optional heavy imports guarded to speed up initial load
 from typing import List, Dict, Tuple
@@ -15,10 +16,15 @@ from typing import List, Dict, Tuple
 # Config & paths
 # -------------------------
 st.set_page_config(page_title="Sentiment Analysis Suite", layout="wide")
-MODELS_DIR = "models/"
-NB_PATH = os.path.join(MODELS_DIR, "nb", "nb-sentiment.joblib")
-ANN_PATH = os.path.join(MODELS_DIR, "ann", "imdb_mlp_tfidf.keras")
-DISTILBERT_DIR = os.path.join(MODELS_DIR, "distilbert", "slide-epoch2")
+# MODELS_DIR = "models/"
+NB_PATH = "noobrs/nb-movie-sentiment"
+NB_FILE = "nb-sentiment.joblib"
+
+ANN_PATH = "noobrs/ann-movie-sentiment"
+ANN_FILE = "imdb_mlp_tfidf.keras"
+ANN_TFIDF_FILE = "tfidf.pkl"
+
+DISTILBERT_DIR = "apple-pie-vs/distilbert-movie-sentiment" # huggingface hub model ID
 
 MAX_LEN = 512  # DistilBERT max length
 STRIDE = 256   # DistilBERT sliding window stride
@@ -72,23 +78,22 @@ def df_to_download(df: pd.DataFrame, filename: str) -> Tuple[bytes, str]:
 # -------------------------
 @st.cache_resource(show_spinner=True)
 def load_nb():
-    if os.path.exists(NB_PATH):
-        return joblib.load(NB_PATH)
-    return None
+    try:
+        nb_path = hf_hub_download(NB_PATH, filename=NB_FILE)
+        return joblib.load(nb_path)
+    except Exception as e:
+        return None
 
 @st.cache_resource(show_spinner=True)
 def load_ann():
-    import tensorflow as tf
-    import joblib
-    if os.path.exists(ANN_PATH):
-        # Load the keras model
-        model = tf.keras.models.load_model(ANN_PATH)
-        # Load the TF-IDF vectorizer
-        tfidf_path = os.path.join(MODELS_DIR, "ann", "tfidf.pkl")
-        if os.path.exists(tfidf_path):
-            tfidf = joblib.load(tfidf_path)
-            return {"model": model, "tfidf": tfidf}
-    return None
+    try:
+        tfidf_p = hf_hub_download(ANN_PATH, filename=ANN_TFIDF_FILE)
+        ann_p   = hf_hub_download(ANN_PATH, filename=ANN_FILE)
+        import tensorflow as tf, joblib
+        return {"model": tf.keras.models.load_model(ann_p),
+                "tfidf": joblib.load(tfidf_p)}
+    except Exception as e:
+        return None
 
 @st.cache_resource(show_spinner=True)
 def load_distilbert(model_dir=DISTILBERT_DIR):

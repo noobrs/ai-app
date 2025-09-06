@@ -11,3 +11,6 @@ requests
 matplotlib
 beautifulsoup4
 lxml
+huggingface_hub
+hf_xet
+tensorflow-cpu
