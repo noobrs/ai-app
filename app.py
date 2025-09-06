@@ -387,24 +387,6 @@ def single_text_stacked_chart(row: pd.Series):
     
     st.altair_chart(chart, use_container_width=True)
 
-def single_text_chart(row: pd.Series):
-    # Show a neat horizontal bar of probabilities
-    pairs = []
-    for m in ["nb", "ann", "distilbert"]:
-        col = f"{m}_prob_pos"
-        if col in row and not pd.isna(row[col]):
-            pairs.append({"model": m.upper(), "P(positive)": float(row[col])})
-    if not pairs:
-        return
-    df = pd.DataFrame(pairs)
-    st.subheader("Confidence by Model")
-    chart = alt.Chart(df).mark_bar().encode(
-        x=alt.X("P(positive):Q", scale=alt.Scale(domain=[0,1])),
-        y=alt.Y("model:N", sort="-x"),
-        tooltip=[alt.Tooltip("P(positive):Q", format=".4f"), "model:N"]
-    )
-    st.altair_chart(chart, use_container_width=True)
-
 # -------------------------
 # UI
 # -------------------------
@@ -568,9 +550,6 @@ if st.button("Run", type="primary", disabled=not texts):
                     else:
                         st.error(f"{sentiment.upper()}")
                     st.metric("Confidence", f"{confidence:.4f}")
-            
-            # Show comparison chart
-            single_text_chart(row)
 
         # Case 3: Multiple texts + Single model - Show pie chart + scrollable grid
         elif not is_single_text and is_single_model:
