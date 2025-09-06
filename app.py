@@ -440,10 +440,6 @@ if st.button("Run", type="primary", disabled=not texts):
                         value=f"{confidence:.4f}",
                         delta=f"P(positive) = {confidence:.4f}"
                     )
-                
-                with st.expander("View processed text"):
-                    st.write(row["cleaned"])
-                break
 
         # Case 2: Single text + All models - Show all three results
         elif is_single_text and is_all_models:
@@ -469,9 +465,6 @@ if st.button("Run", type="primary", disabled=not texts):
             
             # Show comparison chart
             single_text_chart(row)
-            
-            with st.expander(" View processed text"):
-                st.write(row["cleaned"])
 
         # Case 3: Multiple texts + Single model - Show pie chart + scrollable grid
         elif not is_single_text and is_single_model:
