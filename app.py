@@ -261,11 +261,27 @@ def distribution_charts(df: pd.DataFrame, model_key: str, title_prefix: str):
     counts = df[model_key].value_counts(dropna=False).rename_axis("label").reset_index(name="count")
     st.subheader(f"{title_prefix}: Polarity Distribution ({model_key})")
     left, right = st.columns(2)
+    
+    # Define custom colors for sentiment
+    color_scale = alt.Scale(
+        domain=["negative", "positive"],
+        range=["#ff4444", "#44aa44"]  # Red for negative, Green for positive
+    )
+    
     with left:
-        pie = alt.Chart(counts).mark_arc().encode(theta="count:Q", color="label:N", tooltip=["label", "count"])
+        pie = alt.Chart(counts).mark_arc().encode(
+            theta="count:Q", 
+            color=alt.Color("label:N", scale=color_scale, title="Sentiment"), 
+            tooltip=["label", "count"]
+        )
         st.altair_chart(pie, use_container_width=True)
     with right:
-        bar = alt.Chart(counts).mark_bar().encode(x="label:N", y="count:Q", tooltip=["label", "count"])
+        bar = alt.Chart(counts).mark_bar().encode(
+            x="label:N", 
+            y="count:Q", 
+            color=alt.Color("label:N", scale=color_scale, title="Sentiment"),
+            tooltip=["label", "count"]
+        )
         st.altair_chart(bar, use_container_width=True)
 
 def multi_model_comparison_chart(df: pd.DataFrame, selected_models: List[str], title: str):
