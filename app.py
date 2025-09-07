@@ -1,6 +1,12 @@
 # app.py
 # Streamlit Sentiment App: Naive Bayes, ANN, DistilBERT (with sliding window)
 # ---------------------------------------------------------------
+
+# Force CPU-only mode to avoid CUDA errors
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppress TensorFlow info/warning logs
+
 import os, io, time, re, json, math, joblib, html, unicodedata
 from bs4 import BeautifulSoup
 import numpy as np
@@ -90,9 +96,14 @@ def load_ann():
         tfidf_p = hf_hub_download(ANN_PATH, filename=ANN_TFIDF_FILE)
         ann_p   = hf_hub_download(ANN_PATH, filename=ANN_FILE)
         import tensorflow as tf, joblib
+        
+        # Force CPU and limit memory growth
+        tf.config.set_visible_devices([], 'GPU')
+        
         return {"model": tf.keras.models.load_model(ann_p),
                 "tfidf": joblib.load(tfidf_p)}
     except Exception as e:
+        st.error(f"Failed to load ANN model: {e}")
         return None
 
 @st.cache_resource(show_spinner=True)
