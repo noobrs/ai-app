@@ -50,7 +50,7 @@ def clean_text(x):
     x = re.sub(r"\b[\w\.-]+@[\w\.-]+\.\w+\b", " ", x)
 
     # runs of 2+ asterisks → single *
-    x = re.sub(r"\{2,}", "", x)
+    x = re.sub(r"\*{2,}", "*", x)
 
     # collapse any run of -, – or — to a single em dash, with spacing
     x = re.sub(r"\s*[-–—]{2,}\s*", " — ", x)
