@@ -190,38 +190,51 @@ def _distilbert_probs_sliding(texts: List[str], max_len=512, stride=256) -> np.n
 
     pos_probs = []
     for t in texts:
+        # Ensure t is a string and not empty
+        if not isinstance(t, str):
+            t = str(t) if t is not None else ""
+        
         if not t or not t.strip():
             pos_probs.append(0.5)
             continue
 
-        enc = tok(
-            t,
-            return_tensors="pt",
-            truncation=True,
-            max_length=max_len,
-            stride=stride,
-            return_overflowing_tokens=True,
-        )
+        # Clean the text to ensure it's a single string
+        text_input = t.strip()
+        
+        try:
+            enc = tok(
+                text_input,
+                return_tensors="pt",
+                truncation=True,
+                padding=True,  # Don't pad individual texts
+                max_length=max_len,
+                stride=stride,
+                return_overflowing_tokens=True,
+            )
 
-        num_chunks = enc["input_ids"].shape[0]
-        probs_each = []
-        with torch.no_grad():
-            for i in range(num_chunks):
-                # filter to keys the model actually supports
-                inputs = {
-                    k: v[i:i+1].to(device)
-                    for k, v in enc.items()
-                    if isinstance(v, torch.Tensor) and k in allowed_forward_args
-                }
-                out = mdl(**inputs)
-                logits = out.logits  # shape (1, C)
-                if num_labels == 1:
-                    p = torch.sigmoid(logits).item()
-                else:
-                    p = torch.softmax(logits, dim=-1)[0, pos_idx].item()
-                probs_each.append(p)
+            num_chunks = enc["input_ids"].shape[0]
+            probs_each = []
+            with torch.no_grad():
+                for i in range(num_chunks):
+                    # filter to keys the model actually supports
+                    inputs = {
+                        k: v[i:i+1].to(device)
+                        for k, v in enc.items()
+                        if isinstance(v, torch.Tensor) and k in allowed_forward_args
+                    }
+                    out = mdl(**inputs)
+                    logits = out.logits  # shape (1, C)
+                    if num_labels == 1:
+                        p = torch.sigmoid(logits).item()
+                    else:
+                        p = torch.softmax(logits, dim=-1)[0, pos_idx].item()
+                    probs_each.append(p)
 
-        pos_probs.append(float(np.mean(probs_each)))
+            pos_probs.append(float(np.mean(probs_each)))
+            
+        except Exception as e:
+            print(f"Error processing text: {text_input[:50]}... Error: {e}")
+            pos_probs.append(0.5)  # Default neutral prediction on error
 
     return np.array(pos_probs)
 
@@ -230,10 +243,33 @@ def run_models(texts: List[str],
                use_nb: bool,
                use_ann: bool,
                use_distilbert: bool) -> pd.DataFrame:
-    # Preprocess
-    cleaned = [clean_text(t) for t in texts]
+    # Input validation and preprocessing
+    if not texts:
+        return pd.DataFrame()
+    
+    # Ensure all inputs are strings and not empty
+    validated_texts = []
+    for t in texts:
+        if isinstance(t, str):
+            validated_texts.append(t.strip() if t.strip() else "Empty text")
+        else:
+            validated_texts.append(str(t) if t is not None else "Empty text")
+    
+    # Clean the validated texts
+    cleaned = [clean_text(t) for t in validated_texts]
+    
+    # Ensure no empty cleaned texts
+    final_cleaned = []
+    for c in cleaned:
+        if c and c.strip():
+            final_cleaned.append(c.strip())
+        else:
+            final_cleaned.append("empty")  # Fallback for empty texts
 
-    results = pd.DataFrame({"text": texts, "cleaned": cleaned})
+    results = pd.DataFrame({
+        "text": validated_texts, 
+        "cleaned": final_cleaned
+    })
 
     if use_nb:
         nb = load_nb()
@@ -241,9 +277,14 @@ def run_models(texts: List[str],
             results["nb_prob_pos"] = np.nan
             results["nb_label"] = "MODEL NOT FOUND"
         else:
-            probs = _prob_pos_from_sklearn_pipeline(nb, cleaned)
-            results["nb_prob_pos"] = probs
-            results["nb_label"] = np.where(probs >= 0.5, "positive", "negative")
+            try:
+                probs = _prob_pos_from_sklearn_pipeline(nb, final_cleaned)
+                results["nb_prob_pos"] = probs
+                results["nb_label"] = np.where(probs >= 0.5, "positive", "negative")
+            except Exception as e:
+                print(f"Naive Bayes error: {e}")
+                results["nb_prob_pos"] = 0.5
+                results["nb_label"] = "ERROR"
 
     if use_ann:
         ann = load_ann()
@@ -251,16 +292,26 @@ def run_models(texts: List[str],
             results["ann_prob_pos"] = np.nan
             results["ann_label"] = "MODEL NOT FOUND"
         else:
-            probs = _prob_pos_from_ann(ann, cleaned)
-            results["ann_prob_pos"] = probs
-            results["ann_label"] = np.where(probs >= 0.5, "positive", "negative")
+            try:
+                probs = _prob_pos_from_ann(ann, final_cleaned)
+                results["ann_prob_pos"] = probs
+                results["ann_label"] = np.where(probs >= 0.5, "positive", "negative")
+            except Exception as e:
+                print(f"ANN error: {e}")
+                results["ann_prob_pos"] = 0.5
+                results["ann_label"] = "ERROR"
 
     if use_distilbert:
-        probs = _distilbert_probs_sliding(cleaned,
-                                          max_len=MAX_LEN,
-                                          stride=STRIDE)
-        results["distilbert_prob_pos"] = probs
-        results["distilbert_label"] = np.where(probs >= 0.5, "positive", "negative")
+        try:
+            probs = _distilbert_probs_sliding(final_cleaned,
+                                              max_len=MAX_LEN,
+                                              stride=STRIDE)
+            results["distilbert_prob_pos"] = probs
+            results["distilbert_label"] = np.where(probs >= 0.5, "positive", "negative")
+        except Exception as e:
+            print(f"DistilBERT error: {e}")
+            results["distilbert_prob_pos"] = 0.5
+            results["distilbert_label"] = "ERROR"
 
     return results
 
