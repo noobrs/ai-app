@@ -2,16 +2,58 @@
 
 A comprehensive sentiment analysis application that compares three different machine learning approaches: **Naive Bayes**, **Artificial Neural Networks (ANN)**, and **DistilBERT** transformer models. The project includes both model training notebooks and a user-friendly Streamlit web application for real-time sentiment prediction.
 
-## 📋 Table of Contents
+## 🛠 Installation
 
-- [Features](#features)
-- [Models Overview](#models-overview)
-- [Project Structure](#project-structure)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Model Performance](#model-performance)
-- [API Reference](#api-reference)
-- [Contributing](#contributing)
+### Prerequisites
+- Python 3.8 or higher
+- pip package manager
+- Git (optional, for cloning)
+
+### Step 1: Clone the Repository
+```bash
+git clone https://github.com/noobrs/ai-app.git
+cd ai-app
+```
+
+### Step 2: Create Virtual Environment (Recommended)
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+```
+
+### Step 3: Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### Step 4: Verify Installation
+```bash
+# Check if Streamlit is installed correctly
+streamlit --version
+
+# Verify Python dependencies
+python -c "import streamlit, transformers, tensorflow, sklearn; print('All dependencies installed successfully!')"
+```
+
+## 🚀 Usage
+
+### Running the Web Application
+
+1. **Start the Streamlit application:**
+```bash
+streamlit run app.py
+```
+
+2. **Open your web browser** and navigate to:
+```
+http://localhost:8501
+```
 
 ## ✨ Features
 
@@ -73,59 +115,6 @@ ai-app/
 ├── naivebayes.ipynb           # Naive Bayes training notebook
 ├── testANN_Real.ipynb         # ANN training notebook
 └── distilbert.ipynb           # DistilBERT training notebook
-```
-
-## 🛠 Installation
-
-### Prerequisites
-- Python 3.8 or higher
-- pip package manager
-- Git (optional, for cloning)
-
-### Step 1: Clone the Repository
-```bash
-git clone https://github.com/noobrs/ai-app.git
-cd ai-app
-```
-
-### Step 2: Create Virtual Environment (Recommended)
-```bash
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# On Windows:
-venv\Scripts\activate
-# On macOS/Linux:
-source venv/bin/activate
-```
-
-### Step 3: Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### Step 4: Verify Installation
-```bash
-# Check if Streamlit is installed correctly
-streamlit --version
-
-# Verify Python dependencies
-python -c "import streamlit, transformers, tensorflow, sklearn; print('All dependencies installed successfully!')"
-```
-
-## 🚀 Usage
-
-### Running the Web Application
-
-1. **Start the Streamlit application:**
-```bash
-streamlit run app.py
-```
-
-2. **Open your web browser** and navigate to:
-```
-http://localhost:8501
 ```
 
 ### Using the Application
