@@ -4,8 +4,12 @@
 
 # Force CPU-only mode to avoid CUDA errors
 import os
+import torch, multiprocessing as mp
+
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppress TensorFlow info/warning logs
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ["TOKENIZERS_PARALLELISM"] = "false" 
+torch.set_num_threads(max(1, min(4, (os.cpu_count() or 2) // 2)))
 
 import os, io, time, re, json, math, joblib, html, unicodedata
 from bs4 import BeautifulSoup
@@ -22,7 +26,8 @@ from typing import List, Dict, Tuple
 # Config & paths
 # -------------------------
 st.set_page_config(page_title="Sentiment Analysis Suite", layout="wide")
-# MODELS_DIR = "models/"
+
+# Model paths
 NB_PATH = "noobrs/nb-movie-sentiment"
 NB_FILE = "nb-sentiment.joblib"
 
@@ -170,73 +175,101 @@ def _prob_pos_from_ann(ann_dict, texts: List[str]) -> np.ndarray:
     else:
         return probs[:, 1]  # softmax output, class 1 is positive
 
-def _distilbert_probs_sliding(texts: List[str], max_len=512, stride=256) -> np.ndarray:
-    import torch, inspect, numpy as np
+def _distilbert_probs_sliding(
+    texts: List[str],
+    max_len: int = 512,
+    stride: int = 256,
+    shard_size: int = 32,      # how many reviews to tokenize at once
+    micro_batch: int = 32      # how many windows per forward pass
+) -> np.ndarray:
+    import torch, gc, numpy as np
     tok, mdl, device = load_distilbert()
 
-    # work out the positive-class index safely
-    id2label = getattr(mdl.config, "id2label", None)
-    num_labels = getattr(mdl.config, "num_labels", 2)
+    # figure positive index robustly
     pos_idx = 1
-    if isinstance(id2label, dict) and id2label:
-        label_map = {int(k): str(v).lower() for k, v in id2label.items()}
-        for k, v in label_map.items():
+    id2label = getattr(mdl.config, "id2label", None)
+    if isinstance(id2label, dict):
+        for k, v in {int(k): str(v).lower() for k, v in id2label.items()}.items():
             if "pos" in v:
                 pos_idx = k
                 break
 
-    # only pass args that forward() accepts (avoid overflow_to_sample_mapping, etc.)
-    allowed_forward_args = set(inspect.signature(mdl.forward).parameters.keys())
+    out = np.zeros(len(texts), dtype=np.float32)
 
-    pos_probs = []
-    for t in texts:
-        # Ensure t is a string and not empty
-        if not isinstance(t, str):
-            t = str(t) if t is not None else ""
-        
-        if not t or not t.strip():
-            pos_probs.append(0.5)
-            continue
+    # light progress (update per shard, not per text)
+    try:
+        import streamlit as st
+        pbar = st.progress(0)
+        ptxt = st.empty()
+    except Exception:
+        pbar = None
+        ptxt = None
 
-        # Clean the text to ensure it's a single string
-        text_input = t.strip()
-        
-        try:
+    total = len(texts)
+    done = 0
+
+    mdl.eval()
+    with torch.inference_mode():
+        for s in range(0, total, shard_size):
+            shard = texts[s:s+shard_size]
+
+            # 1) build windows for the shard (flattened)
             enc = tok(
-                text_input,
-                return_tensors="pt",
-                truncation=True,
-                padding=True,  # Don't pad individual texts
+                shard,
                 max_length=max_len,
+                truncation=True,
                 stride=stride,
                 return_overflowing_tokens=True,
+                return_length=True,
+                padding=False,
+                add_special_tokens=True,
+                return_tensors=None   # important: lists, not tensors yet
             )
 
-            num_chunks = enc["input_ids"].shape[0]
-            probs_each = []
-            with torch.no_grad():
-                for i in range(num_chunks):
-                    # filter to keys the model actually supports
-                    inputs = {
-                        k: v[i:i+1].to(device)
-                        for k, v in enc.items()
-                        if isinstance(v, torch.Tensor) and k in allowed_forward_args
-                    }
-                    out = mdl(**inputs)
-                    logits = out.logits  # shape (1, C)
-                    if num_labels == 1:
-                        p = torch.sigmoid(logits).item()
-                    else:
-                        p = torch.softmax(logits, dim=-1)[0, pos_idx].item()
-                    probs_each.append(p)
+            mapping = np.array(enc["overflow_to_sample_mapping"])  # len = num_windows
+            num_windows = len(mapping)
+            if num_windows == 0:
+                # all empty? put neutral 0.5
+                for i in range(len(shard)):
+                    out[s+i] = 0.5
+                continue
 
-            pos_probs.append(float(np.mean(probs_each)))
-            
-        except Exception as e:
-            print(f"Error processing text: {text_input[:50]}... Error: {e}")
-            pos_probs.append(0.5)  # Default neutral prediction on error
+            # 2) pad once for all windows, then slice into micro-batches
+            batch = tok.pad(enc, padding=True, return_tensors="pt")
+            inputs = {k: v.to(device) for k, v in batch.items() if k in ("input_ids", "attention_mask")}
 
-    return np.array(pos_probs)
+            logits_parts = []
+            for i in range(0, num_windows, micro_batch):
+                sl = slice(i, i+micro_batch)
+                mb = {k: v[sl] for k, v in inputs.items()}
+                logits_parts.append(mdl(**mb).logits.cpu())
+
+            logits = torch.cat(logits_parts, dim=0)  # [num_windows, num_labels]
+
+            if logits.shape[-1] == 1:
+                probs = torch.sigmoid(logits).squeeze(-1).numpy()
+            else:
+                probs = torch.softmax(logits, dim=-1)[:, pos_idx].numpy()
+
+            # 3) aggregate windows -> per-review mean
+            for i in range(len(shard)):
+                win_probs = probs[mapping == i]
+                out[s + i] = float(win_probs.mean()) if len(win_probs) else 0.5
+
+            # cleanup
+            del batch, inputs, logits, logits_parts, enc
+            gc.collect()
+
+            done = min(total, s + shard_size)
+            if pbar:
+                pbar.progress(done / total)
+                ptxt.text(f"DistilBERT {done}/{total} reviews")
+
+    if pbar:
+        pbar.empty()
+        ptxt.empty()
+
+    return out
 
 # High-level prediction orchestrator
 def run_models(texts: List[str],
@@ -303,9 +336,24 @@ def run_models(texts: List[str],
 
     if use_distilbert:
         try:
-            probs = _distilbert_probs_sliding(final_cleaned,
-                                              max_len=MAX_LEN,
-                                              stride=STRIDE)
+            # Adjust batch size based on dataset size
+            dataset_size = len(final_cleaned)
+
+            # heuristics: smaller shard/micro-batch when big datasets
+            if dataset_size >= 200:
+                shard_size, micro_batch = 16, 16
+            elif dataset_size >= 100:
+                shard_size, micro_batch = 24, 24
+            else:
+                shard_size, micro_batch = 32, 32
+
+            probs = _distilbert_probs_sliding(
+                final_cleaned,
+                max_len=MAX_LEN,
+                stride=STRIDE,
+                shard_size=shard_size,
+                micro_batch=micro_batch
+            )
             results["distilbert_prob_pos"] = probs
             results["distilbert_label"] = np.where(probs >= 0.5, "positive", "negative")
         except Exception as e:
