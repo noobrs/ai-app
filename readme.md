@@ -2,6 +2,28 @@
 
 A comprehensive sentiment analysis application that compares three different machine learning approaches: **Naive Bayes**, **Artificial Neural Networks (ANN)**, and **DistilBERT** transformer models. The project includes both model training notebooks and a user-friendly Streamlit web application for real-time sentiment prediction.
 
+## Team Contributions
+
+This project was developed collaboratively by three team members, each focusing on different machine learning approaches:
+
+### **Chua Teng Hui**
+- **Naive Bayes Implementation**: Developed the Naive Bayes sentiment classification model
+- **Notebook**: `naivebayes.ipynb` - Complete training pipeline and model evaluation
+- **Model Artifacts**: Created optimized Naive Bayes classifier with TF-IDF vectorization
+
+### **Wong Wai Kin** 
+- **Artificial Neural Network (ANN)**: Designed and implemented the deep learning approach
+- **Notebook**: `testANN_Real.ipynb` - Neural network architecture, training, and validation
+- **Model Artifacts**: Built MLP classifier with TensorFlow/Keras achieving 90.77% accuracy
+
+### **Yong Vin Sen**
+- **DistilBERT Implementation**: Developed the transformer-based sentiment analysis model
+- **Notebook**: `distilbert.ipynb` - Fine-tuning BERT for sentiment classification
+- **Advanced Features**: Implemented sliding window technique for long text processing
+- **Model Variants**: Created multiple DistilBERT configurations for different use cases
+
+Each team member contributed their expertise to create a comprehensive comparison of traditional machine learning, deep learning, and transformer-based approaches to sentiment analysis.
+
 ## 🛠 Installation
 
 ### Prerequisites
@@ -228,7 +250,7 @@ export MAX_LEN=512
 export STRIDE=256
 ```
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **IMDB Dataset**: Large Movie Review Dataset by Stanford AI Lab
 - **Hugging Face**: Pre-trained DistilBERT model and transformers library
