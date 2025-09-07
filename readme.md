@@ -181,7 +181,7 @@ Output:
 | **Naive Bayes** | 88.53% | 88.54% | 88.53% | 88.53% |
 | **ANN** | 90.77% | 90.78% | 90.77% | 90.77% |
 | **DistilBERT** | 93.79% | 93.79% | 93.79% | 93.79% |
-| **DistilBERT + Sliding Window** | **93.93%** | **93.95%** | **93.93%** | **93.93%** |
+| **DistilBERT + Sliding Window** | **93.94%** | **93.96%** | **93.94%** | **93.94%** |
 
 ### Key Insights:
 - **DistilBERT with Sliding Window** achieves the highest performance
