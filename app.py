@@ -584,7 +584,7 @@ elif model_choice == "DistilBERT":
 st.markdown("---")
 
 # Run inference button (always visible)
-if st.button("Run", type="primary", disabled=not texts):
+if st.button("Run", type="secondary", disabled=not texts):
     if not texts:
         st.warning("Please provide input text or upload a CSV file first.")
     else:
